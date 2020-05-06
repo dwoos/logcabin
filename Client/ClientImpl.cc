@@ -25,6 +25,8 @@
 #include "RPC/ClientRPC.h"
 #include "RPC/ClientSession.h"
 
+#include "proteinpills/proteinpills.h"
+
 namespace LogCabin {
 namespace Client {
 
@@ -416,7 +418,7 @@ ClientImpl::ExactlyOnceRPCHelper::keepAliveThreadMain()
             }
             continue;
         }
-        keepAliveCV.wait_until(lockGuard, nextKeepAlive);
+        keepAliveCV.wait_until_debug(lockGuard, nextKeepAlive, "keepAlive");
     }
 }
 
@@ -495,6 +497,7 @@ ClientImpl::getConfiguration(TimePoint timeout)
     typedef LeaderRPCBase::Status RPCStatus;
     RPCStatus status = leaderRPC->call(
         OpCode::GET_CONFIGURATION, request, response, timeout);
+    printf("Done with LeaderRPC\n");
     Configuration configuration;
     for (auto it = response.servers().begin();
          it != response.servers().end();

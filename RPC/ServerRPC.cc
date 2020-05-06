@@ -16,6 +16,7 @@
 
 #include "Core/ProtoBuf.h"
 #include "RPC/ServerRPC.h"
+#include "proteinpills/proteinpills.h"
 
 namespace LogCabin {
 namespace RPC {
@@ -140,6 +141,10 @@ ServerRPC::reply(const google::protobuf::Message& payload)
     responseHeader.prefix.status = Status::OK;
     responseHeader.prefix.toBigEndian();
     responseHeader.toBigEndian();
+    annotate_message(payload.GetTypeName().c_str());
+    protobuf_field("body", payload.GetTypeName().c_str(), 
+                   ((char*)buffer.getData())+sizeof(ResponseHeaderVersion1), 
+                   buffer.getLength() - sizeof(ResponseHeaderVersion1));
     opaqueRPC.response = std::move(buffer);
     opaqueRPC.sendReply();
 }
@@ -156,6 +161,10 @@ ServerRPC::returnError(const google::protobuf::Message& serviceSpecificError)
     responseHeader.prefix.status = Status::SERVICE_SPECIFIC_ERROR;
     responseHeader.prefix.toBigEndian();
     responseHeader.toBigEndian();
+    annotate_message("Error");
+    protobuf_field("error", serviceSpecificError.GetTypeName().c_str(),
+                   ((char*)buffer.getData())+sizeof(ResponseHeaderVersion1), 
+                   buffer.getLength() - sizeof(ResponseHeaderVersion1));
     opaqueRPC.response = std::move(buffer);
     opaqueRPC.sendReply();
 }

@@ -41,6 +41,8 @@
 #include "Server/Globals.h"
 #include "Storage/LogFactory.h"
 
+#include "proteinpills/proteinpills.h"
+
 namespace LogCabin {
 namespace Server {
 
@@ -1160,13 +1162,17 @@ RaftConsensus::getConfiguration(
         Protocol::Raft::SimpleConfiguration& currentConfiguration,
         uint64_t& id) const
 {
+    NOTICE("here");
     std::unique_lock<Mutex> lockGuard(mutex);
+    NOTICE("here");
     if (!upToDateLeader(lockGuard))
         return ClientResult::NOT_LEADER;
+    NOTICE("here");
     if (configuration->state != Configuration::State::STABLE ||
         commitIndex < configuration->id) {
         return ClientResult::RETRY;
     }
+    NOTICE("here");
     currentConfiguration = configuration->description.prev_configuration();
     id = configuration->id;
     return ClientResult::SUCCESS;
@@ -1671,7 +1677,8 @@ RaftConsensus::setConfiguration(
                 checkProgressAt = Clock::now() + ELECTION_TIMEOUT;
             }
         }
-        stateChanged.wait_until(lockGuard, checkProgressAt);
+        stateChanged.wait_until_debug(lockGuard, checkProgressAt,
+                                      "setConfiguration-stateChanged");
     }
 
     // Write and commit transitional configuration
@@ -1950,6 +1957,7 @@ RaftConsensus::stateMachineUpdaterThreadMain()
     uint64_t lastVersionCommitted = 0;
     TimePoint backoffUntil = TimePoint::min();
     while (!exiting) {
+        printf("state machine updater waking\n");
         TimePoint now = Clock::now();
         if (backoffUntil <= now && state == State::LEADER) {
             using RaftConsensusInternal::StateMachineVersionIntersection;
@@ -2013,10 +2021,14 @@ RaftConsensus::stateMachineUpdaterThreadMain()
                 backoffUntil = now + STATE_MACHINE_UPDATER_BACKOFF;
             }
         }
-        if (backoffUntil <= now)
+        printf("state machine updater waiting\n");
+        if (backoffUntil <= now) {
             stateChanged.wait(lockGuard);
-        else
-            stateChanged.wait_until(lockGuard, backoffUntil);
+        }
+        else {
+            stateChanged.wait_until_debug(lockGuard, backoffUntil,
+                                          "stateMachineUpdater-stateChanged");
+        }
     }
     NOTICE("Exiting");
 }
@@ -2059,9 +2071,12 @@ RaftConsensus::timerThreadMain()
     std::unique_lock<Mutex> lockGuard(mutex);
     Core::ThreadId::setName("startNewElection");
     while (!exiting) {
+        printf("timer thread waking\n");
+        std::cout << "Clock now is " << Clock::now() << " startElectionAt is " << startElectionAt << std::endl;
         if (Clock::now() >= startElectionAt)
             startNewElection();
-        stateChanged.wait_until(lockGuard, startElectionAt);
+        printf("timer thread waiting\n");
+        stateChanged.wait_until_debug(lockGuard, startElectionAt, "startElection");
     }
 }
 
@@ -2109,8 +2124,9 @@ RaftConsensus::peerThreadMain(std::shared_ptr<Peer> peer)
                     break;
             }
         }
-
-        stateChanged.wait_until(lockGuard, waitUntil);
+        printf("peer thread waiting\n");
+        stateChanged.wait_until_debug(lockGuard, waitUntil, "peer-stateChanged");
+        printf("peer thread waking\n");
     }
 
     // must return immediately after this
@@ -2140,7 +2156,9 @@ RaftConsensus::stepDownThreadMain()
                     break;
                 }
             }
+            printf("stepdown thread waiting\n");
             stateChanged.wait(lockGuard);
+            printf("stepdown thread waking\n");
         }
         // Now, if an election timeout goes by without confirming leadership,
         // step down. The election timeout is a reasonable amount of time,
@@ -2163,7 +2181,9 @@ RaftConsensus::stepDownThreadMain()
                 stepDown(currentTerm + 1);
                 break;
             }
-            stateChanged.wait_until(lockGuard, stepDownAt);
+            printf("stepdown thread waiting\n");
+            stateChanged.wait_until_debug(lockGuard, stepDownAt, "stepDown-stateChanged");
+            printf("stepdown thread waking\n");
         }
     }
 }
@@ -2990,7 +3010,9 @@ RaftConsensus::upToDateLeader(std::unique_lock<Mutex>& lockGuard) const
             if (commitTerm == currentTerm)
                 return true;
         }
+        NOTICE("here");
         stateChanged.wait(lockGuard);
+        NOTICE("here");
     }
 }
 

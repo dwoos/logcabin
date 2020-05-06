@@ -24,6 +24,8 @@
 #include "RPC/ClientSession.h"
 #include "RPC/ClientRPC.h"
 
+#include "proteinpills/proteinpills.h"
+
 namespace LogCabin {
 namespace Client {
 
@@ -84,6 +86,7 @@ LeaderRPC::Call::start(OpCode opCode,
                        const google::protobuf::Message& request,
                        TimePoint timeout)
 {
+    printf("calling leaderRPC\n");
     // Save a reference to the leaderSession
     cachedSession = leaderRPC.getSession(timeout);
     rpc = RPC::ClientRPC(cachedSession,
@@ -217,8 +220,9 @@ LeaderRPC::getSession(TimePoint timeout)
     // condition variable approach seems cleaner to me, where the mutex is only
     // held during computation, not during I/O. See #173. -Diego
     while (isConnecting) {
+        printf("thread going to sleep bc another thread is connecting\n");
         // Go to sleep, as another thread is already creating a new session.
-        connected.wait_until(lockGuard, timeout);
+        connected.wait_until_debug(lockGuard, timeout, "getSession-connected");
         if (Clock::now() > timeout) {
             return RPC::ClientSession::makeErrorSession(
                 sessionManager.eventLoop,
@@ -254,6 +258,7 @@ LeaderRPC::getSession(TimePoint timeout)
         Core::MutexUnlock<std::mutex> unlockGuard(lockGuard);
 
         // sleep if we've tried to connect too much recently
+        printf("sleeping because we've tried to connect too much\n");
         sessionCreationBackoff.delayAndBegin(timeout);
         if (Clock::now() > timeout) {
             session = RPC::ClientSession::makeErrorSession(
@@ -277,6 +282,7 @@ LeaderRPC::getSession(TimePoint timeout)
     // Unblock other threads and return.
     isConnecting = false;
     connected.notify_all();
+    printf("returning from leaderSession\n");
     return leaderSession;
 }
 
@@ -304,6 +310,7 @@ LeaderRPC::reportFailure(std::shared_ptr<RPC::ClientSession> cachedSession)
 void
 LeaderRPC::reportNotLeader(std::shared_ptr<RPC::ClientSession> cachedSession)
 {
+    printf("notLeader\n");
     std::lock_guard<std::mutex> lockGuard(mutex);
     if (cachedSession != leaderSession)
         return;

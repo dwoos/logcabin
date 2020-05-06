@@ -21,9 +21,12 @@
 #include <getopt.h>
 #include <iostream>
 #include <string>
+#include <unistd.h>
 
 #include <LogCabin/Client.h>
 #include <LogCabin/Debug.h>
+
+#include <proteinpills/proteinpills.h>
 
 namespace {
 
@@ -183,18 +186,19 @@ printConfiguration(const std::pair<uint64_t, Configuration>& configuration)
 int
 main(int argc, char** argv)
 {
+    annotate_timeout("initial sleep");
+    sleep(1);
     OptionParser options(argc, argv);
     LogCabin::Client::Debug::setLogPolicy(
         LogCabin::Client::Debug::logPolicyFromString(
             options.logPolicy));
     Cluster cluster(options.cluster);
-
+    printf("calling getConfiguration\n");
     std::pair<uint64_t, Configuration> configuration =
         cluster.getConfiguration();
     uint64_t id = configuration.first;
     std::cout << "Current configuration:" << std::endl;
     printConfiguration(configuration);
-
     std::cout << "Attempting to change cluster membership to the following:"
               << std::endl;
     Configuration servers;
@@ -246,7 +250,8 @@ main(int argc, char** argv)
 
     std::cout << "Current configuration:" << std::endl;
     printConfiguration(cluster.getConfiguration());
-
+    annotate_timeout("final sleep");
+    sleep(1);
     if (result.status == ConfigurationResult::OK)
         return 0;
     else

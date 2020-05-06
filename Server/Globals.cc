@@ -100,13 +100,16 @@ Globals::~Globals()
     serverStats.exit();
 }
 
+
 void
 Globals::init()
 {
+    NOTICE("in globals::init");
     std::string uuid = config.read("clusterUUID", std::string(""));
     if (!uuid.empty())
         clusterUUID.set(uuid);
     serverId = config.read<uint64_t>("serverId");
+    NOTICE("still in globals::init");
     Core::Debug::processName = Core::StringUtil::format("%lu", serverId);
     {
         ServerStats::Lock serverStatsLock(serverStats);
@@ -117,22 +120,27 @@ Globals::init()
         raft->serverId = serverId;
     }
 
+    NOTICE("still in globals::init");
     if (!controlService) {
         controlService.reset(new ControlService(*this));
     }
 
+    NOTICE("still in globals::init");
     if (!raftService) {
         raftService.reset(new RaftService(*this));
     }
 
+    NOTICE("still in globals::init");
     if (!clientService) {
         clientService.reset(new ClientService(*this));
     }
 
+    NOTICE("still in globals::init");
     if (!rpcServer) {
         rpcServer.reset(new RPC::Server(eventLoop,
                                         Protocol::Common::MAX_MESSAGE_LENGTH));
 
+        NOTICE("still in globals::init");
         uint32_t maxThreads = config.read<uint16_t>("maxThreads", 16);
         namespace ServiceId = Protocol::Common::ServiceId;
         rpcServer->registerService(ServiceId::CONTROL_SERVICE,
@@ -145,6 +153,7 @@ Globals::init()
                                    clientService,
                                    maxThreads);
 
+        NOTICE("still in globals::init");
         std::string listenAddressesStr =
             config.read<std::string>("listenAddresses");
         {
@@ -152,17 +161,23 @@ Globals::init()
             serverStatsLock->set_server_id(serverId);
             serverStatsLock->set_addresses(listenAddressesStr);
         }
+        NOTICE("still in globals::init");
         std::vector<std::string> listenAddresses =
             Core::StringUtil::split(listenAddressesStr, ',');
         if (listenAddresses.empty()) {
             EXIT("No server addresses specified to listen on");
         }
+        NOTICE("still in globals::init");
         for (auto it = listenAddresses.begin();
              it != listenAddresses.end();
              ++it) {
+            NOTICE("still in globals::init");
             RPC::Address address(*it, Protocol::Common::DEFAULT_PORT);
+            NOTICE("still in globals::init");
             address.refresh(RPC::Address::TimePoint::max());
+            NOTICE("still in globals::init");
             std::string error = rpcServer->bind(address);
+            NOTICE("still in globals::init");
             if (!error.empty()) {
                 EXIT("Could not listen on address %s: %s",
                      address.toString().c_str(),
@@ -171,10 +186,13 @@ Globals::init()
             NOTICE("Serving on %s",
                    address.toString().c_str());
         }
+        NOTICE("still in globals::init");
         raft->serverAddresses = listenAddressesStr;
+        NOTICE("still in globals::init");
         raft->init();
     }
 
+    NOTICE("still in globals::init");
     if (!stateMachine) {
         stateMachine.reset(new StateMachine(raft, config, *this));
     }

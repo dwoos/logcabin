@@ -207,7 +207,7 @@ OpaqueServer::bind(const Address& listenAddress)
         return format("Can't listen on invalid address: %s",
                       listenAddress.toString().c_str());
     }
-
+    NOTICE("about to make a socket");
     int fd = socket(AF_INET, SOCK_STREAM|SOCK_CLOEXEC, 0);
     if (fd < 0)
         PANIC("Could not create new TCP socket");

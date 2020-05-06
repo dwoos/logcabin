@@ -44,6 +44,7 @@ void
 ClientService::handleRPC(RPC::ServerRPC rpc)
 {
     using Protocol::Client::OpCode;
+    printf("Got RPC with opcode %d\n", rpc.getOpCode());
 
     // Call the appropriate RPC handler based on the request's opCode.
     switch (rpc.getOpCode()) {
@@ -71,6 +72,7 @@ ClientService::handleRPC(RPC::ServerRPC rpc)
                     rpc.getOpCode());
             rpc.rejectInvalidRequest();
     }
+    printf("Done handling RPC with opcode %d\n", rpc.getOpCode());
 }
 
 std::string
@@ -108,10 +110,14 @@ void
 ClientService::getConfiguration(RPC::ServerRPC rpc)
 {
     PRELUDE(GetConfiguration);
+    NOTICE("here");
     Protocol::Raft::SimpleConfiguration configuration;
     uint64_t id;
+    NOTICE("here");
     Result result = globals.raft->getConfiguration(configuration, id);
+    NOTICE("here");
     if (result == Result::RETRY || result == Result::NOT_LEADER) {
+        NOTICE("here");
         Protocol::Client::Error error;
         error.set_error_code(Protocol::Client::Error::NOT_LEADER);
         std::string leaderHint = globals.raft->getLeaderHint();
@@ -120,14 +126,19 @@ ClientService::getConfiguration(RPC::ServerRPC rpc)
         rpc.returnError(error);
         return;
     }
+    NOTICE("here");
     response.set_id(id);
+    NOTICE("here");
     for (auto it = configuration.servers().begin();
          it != configuration.servers().end();
          ++it) {
+        NOTICE("here");
         Protocol::Client::Server* server = response.add_servers();
         server->set_server_id(it->server_id());
         server->set_addresses(it->addresses());
     }
+    NOTICE("here");
+    printf("replying to getConfiguration");
     rpc.reply(response);
 }
 
@@ -236,6 +247,7 @@ ClientService::verifyRecipient(RPC::ServerRPC rpc)
             response.set_cluster_uuid(request.cluster_uuid());
         }
     }
+    printf("replying to verify\n");
     rpc.reply(response);
 }
 

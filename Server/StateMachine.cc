@@ -30,6 +30,8 @@
 #include "Storage/SnapshotFile.h"
 #include "Tree/ProtoBuf.h"
 
+#include "proteinpills/proteinpills.h"
+
 namespace LogCabin {
 namespace Server {
 
@@ -644,7 +646,7 @@ StateMachine::snapshotThreadMain()
             continue;
         }
 
-        snapshotSuggested.wait_until(lockGuard, waitUntil);
+        snapshotSuggested.wait_until_debug(lockGuard, waitUntil, "snapshotSuggested");
     }
 }
 
@@ -711,7 +713,7 @@ StateMachine::snapshotWatchdogThreadMain()
                 tracking = ~0UL;
             }
         }
-        snapshotStarted.wait_until(lockGuard, waitUntil);
+        snapshotStarted.wait_until_debug(lockGuard, waitUntil, "snapshotStarted");
     }
 }
 

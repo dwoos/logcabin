@@ -26,6 +26,7 @@
 #include "Event/Timer.h"
 #include "Protocol/Common.h"
 #include "RPC/ClientSession.h"
+#include "proteinpills/proteinpills.h"
 
 namespace LogCabin {
 namespace RPC {
@@ -89,6 +90,7 @@ ClientSession::MessageSocketHandler::handleReceivedMessage(
             // The server has shown that it is alive for now.
             // Let's get suspicious again in another PING_TIMEOUT_NS.
             session.activePing = false;
+            annotate_timeout("session-timer");
             session.timer.schedule(session.PING_TIMEOUT_NS);
         } else {
             VERBOSE("Received an unexpected ping response. This can happen "
@@ -123,9 +125,10 @@ ClientSession::MessageSocketHandler::handleReceivedMessage(
     --session.numActiveRPCs;
     if (session.numActiveRPCs == 0)
         session.timer.deschedule();
-    else
+    else {
+        annotate_timeout("session-timer");
         session.timer.schedule(session.PING_TIMEOUT_NS);
-
+    }
     // Fill in the response
     response.status = Response::HAS_REPLY;
     response.reply = std::move(message);
@@ -189,6 +192,7 @@ ClientSession::Timer::handleTimerEvent()
                 session.address.toString().c_str(),
                 session.numActiveRPCs);
         session.activePing = true;
+        annotate_message("Ping");
         session.messageSocket->sendMessage(Protocol::Common::PING_MESSAGE_ID,
                                            Core::Buffer());
         schedule(session.PING_TIMEOUT_NS);
@@ -239,6 +243,7 @@ ClientSession::ClientSession(Event::Loop& eventLoop,
     , messageSocket()
     , timerMonitor(eventLoop, timer)
 {
+    printf("In ClientSession\n");
     // Be careful not to pass a sockaddr of length 0 to conect(). Although it
     // should return -1 EINVAL, on some systems (e.g., RHEL6) it instead
     // returns OK but leaves the socket unconnected! See
@@ -326,9 +331,10 @@ ClientSession::ClientSession(Event::Loop& eventLoop,
         close(fd);
         return;
     }
-
+    printf("connected, here\n");
     messageSocket.reset(new MessageSocket(
         messageSocketHandler, eventLoop, fd, maxMessageLength));
+    printf("reset message socket\n");
 }
 
 std::shared_ptr<ClientSession>
@@ -388,6 +394,7 @@ ClientSession::sendRequest(Core::Buffer request)
         if (numActiveRPCs == 1) {
             // activePing's value was undefined while numActiveRPCs = 0
             activePing = false;
+            annotate_timeout("session-timer");
             timer.schedule(PING_TIMEOUT_NS);
         }
     }
@@ -516,7 +523,7 @@ ClientSession::wait(const OpaqueClientRPC& rpc, TimePoint timeout)
             return; // timeout
         }
         response->hasWaiter = true;
-        response->ready.wait_until(mutexGuard, timeout);
+        response->ready.wait_until_debug(mutexGuard, timeout, "RPC-wait");
         response->hasWaiter = false;
     }
 }

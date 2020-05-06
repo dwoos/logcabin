@@ -179,7 +179,9 @@ Address::refresh(TimePoint timeout)
     hints.ai_flags = AI_NUMERICSERV | AI_V4MAPPED | AI_ADDRCONFIG;
 
     addrinfo* result = NULL;
+    NOTICE("about to call getaddrinfo (%s, %s)", host.c_str(), port.c_str());
     int r = getaddrinfo(host.c_str(), port.c_str(), &hints, &result);
+    NOTICE("called getaddrinfo");
     switch (r) {
         // Success.
         case 0: {

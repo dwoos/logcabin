@@ -19,6 +19,7 @@
 #include "RPC/Protocol.h"
 #include "RPC/ClientRPC.h"
 #include "RPC/ClientSession.h"
+#include "proteinpills/proteinpills.h"
 
 namespace LogCabin {
 namespace RPC {
@@ -50,9 +51,14 @@ ClientRPC::ClientRPC(std::shared_ptr<RPC::ClientSession> session,
     requestHeader.serviceSpecificErrorVersion = serviceSpecificErrorVersion;
     requestHeader.opCode = opCode;
     requestHeader.toBigEndian();
-
+    
     // Send the request to the server
     assert(session); // makes debugging more obvious for somewhat common error
+    annotate_message("ClientRequest");
+    int_field("opCode", (int)opCode);
+    protobuf_field("body", request.GetTypeName().c_str(), 
+                   ((char*)requestBuffer.getData())+sizeof(RequestHeaderVersion1), 
+                   requestBuffer.getLength() - sizeof(RequestHeaderVersion1));
     opaqueRPC = session->sendRequest(std::move(requestBuffer));
 }
 

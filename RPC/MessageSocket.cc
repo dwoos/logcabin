@@ -219,6 +219,7 @@ MessageSocket::sendMessage(MessageId messageId, Core::Buffer contents)
         kick = outboundQueue.empty();
         outboundQueue.emplace_back(messageId, std::move(contents));
     }
+    
     // Make sure the SendSocket is set up to call writable().
     if (kick)
         sendSocketMonitor.setEvents(EPOLLOUT|EPOLLONESHOT);
@@ -239,6 +240,7 @@ MessageSocket::readable()
 {
     // Try to read data from the kernel until there is no more left.
     while (true) {
+        printf("reading data\n");
         if (inbound.bytesRead < sizeof(Header)) {
             // Receiving header
             ssize_t bytesRead = read(

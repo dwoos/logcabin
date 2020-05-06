@@ -70,6 +70,11 @@ class ConditionVariable {
     wait_until(std::unique_lock<std::mutex>& lockGuard,
                const Core::Time::SteadyClock::time_point& abs_time);
 
+    void
+    wait_until_debug(std::unique_lock<std::mutex>& lockGuard,
+                     const Core::Time::SteadyClock::time_point& abs_time, const char*);
+    
+    
     // std::mutex and any clock: calls std::mutex and SteadyClock variant
     template<typename Clock, typename Duration>
     void
@@ -90,6 +95,27 @@ class ConditionVariable {
         wait_until(lockGuard, steadyWake);
     }
 
+    template<typename Clock, typename Duration>
+    void
+    wait_until_debug(std::unique_lock<std::mutex>& lockGuard,
+                     const std::chrono::time_point<Clock, Duration>& abs_time,
+                     const char *debug) {
+        std::chrono::time_point<Clock, Duration> now = Clock::now();
+        std::chrono::time_point<Clock, Duration> wake = abs_time;
+        // Clamp to wake to [now - hour, now + hour] to avoid overflow.
+        // See related http://gcc.gnu.org/bugzilla/show_bug.cgi?id=58931
+        if (abs_time < now)
+            wake = now - std::chrono::hours(1);
+        else if (abs_time > now + std::chrono::hours(1))
+            wake = now + std::chrono::hours(1);
+        Core::Time::SteadyClock::time_point steadyNow =
+            Core::Time::SteadyClock::now();
+        Core::Time::SteadyClock::time_point steadyWake =
+            steadyNow + (wake - now);
+        wait_until_debug(lockGuard, steadyWake, debug);
+    }
+    
+    
     // Core::Mutex and any clock: calls std::mutex and any clock variant
     template<typename Clock, typename Duration>
     void
@@ -110,6 +136,27 @@ class ConditionVariable {
             mutex.callback();
     }
 
+    template<typename Clock, typename Duration>
+    void
+    wait_until_debug(std::unique_lock<Core::Mutex>& lockGuard,
+                     const std::chrono::time_point<Clock, Duration>& abs_time,
+                     const char *debug) {
+        Core::Mutex& mutex(*lockGuard.mutex());
+        if (mutex.callback)
+            mutex.callback();
+        assert(lockGuard);
+        std::unique_lock<std::mutex> stdLockGuard(mutex.m,
+                                                  std::adopt_lock_t());
+        lockGuard.release();
+        wait_until_debug(stdLockGuard, abs_time, debug);
+        assert(stdLockGuard);
+        lockGuard = std::unique_lock<Core::Mutex>(mutex, std::adopt_lock_t());
+        stdLockGuard.release();
+        if (mutex.callback)
+            mutex.callback();
+    }
+    
+    
   private:
     /// Underlying condition variable.
     pthread_cond_t cv;

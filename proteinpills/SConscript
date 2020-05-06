@@ -1,0 +1,3 @@
+Import('env', 'object_files')
+
+object_files['proteinpills'] = Copy('#', 'libproteinpills.a')

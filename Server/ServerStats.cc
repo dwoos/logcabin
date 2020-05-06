@@ -24,6 +24,8 @@
 #include "Server/StateMachine.h"
 #include "Server/ServerStats.h"
 
+#include "proteinpills/proteinpills.h"
+
 namespace LogCabin {
 namespace Server {
 
@@ -193,7 +195,7 @@ ServerStats::statsDumperMain()
         }
 
         // Wait until next time
-        statsDumpRequested.wait_until(lockGuard, nextDump);
+        statsDumpRequested.wait_until_debug(lockGuard, nextDump, "statsDumpRequested");
     }
 
     NOTICE("Shutting down");

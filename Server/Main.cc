@@ -24,8 +24,11 @@
 #include "Core/StringUtil.h"
 #include "Core/ThreadId.h"
 #include "Core/Util.h"
+#include "Core/ProtoBuf.h"
 #include "Server/Globals.h"
 #include "Server/RaftConsensus.h"
+#include "build/Protocol/ServerStats.pb.h"
+#include "proteinpills/proteinpills.h"
 
 namespace {
 
@@ -271,6 +274,18 @@ class PidFile {
 
 } // anonymous namespace
 
+LogCabin::Server::Globals globals;
+
+void state_function() {
+    LogCabin::Protocol::ServerStats stats = globals.serverStats.getCurrent();
+    str_field("test", "test");
+    LogCabin::Core::Buffer statsBuffer;
+    LogCabin::Core::ProtoBuf::serialize(stats, statsBuffer, 0);
+    protobuf_field("raft", stats.GetTypeName().c_str(),
+                   (char*)statsBuffer.getData(),
+                   statsBuffer.getLength());
+}
+
 int
 main(int argc, char** argv)
 {
@@ -329,7 +344,6 @@ main(int argc, char** argv)
 
         {
             // Initialize and run Globals.
-            Server::Globals globals;
             globals.config.readFile(options.configFilename.c_str());
 
             // Set debug log policy.
@@ -343,17 +357,20 @@ main(int argc, char** argv)
                    "%s"
                    "# end config",
                    Core::StringUtil::toString(globals.config).c_str());
+            NOTICE("Before globals.init");
             globals.init();
             if (options.bootstrap) {
                 globals.raft->bootstrapConfiguration();
                 NOTICE("Done bootstrapping configuration. Exiting.");
             } else {
+                register_state_function(state_function);
                 globals.leaveSignalsBlocked();
                 globals.run();
             }
         }
-
+        NOTICE("here");
         google::protobuf::ShutdownProtobufLibrary();
+        NOTICE("here");
         return 0;
 
     } catch (const Core::Config::Exception& e) {

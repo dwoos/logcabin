@@ -26,6 +26,8 @@
 #include "Event/Loop.h"
 #include "Event/Timer.h"
 
+#include "proteinpills/proteinpills.h"
+
 namespace LogCabin {
 namespace Event {
 
@@ -55,8 +57,10 @@ Loop::Lock::Lock(Event::Loop& eventLoop)
         eventLoop.lockOwner != Core::ThreadId::getId()) {
         // This is an actual lock: we're not running inside the event loop, and
         //                         we're not recursively locking.
-        if (eventLoop.runningThread != Core::ThreadId::NONE)
+        if (eventLoop.runningThread != Core::ThreadId::NONE) {
+            annotate_timeout("eventLoop-breakTimer");
             eventLoop.breakTimer.schedule(0);
+        }
         while (eventLoop.runningThread != Core::ThreadId::NONE ||
                eventLoop.lockOwner != Core::ThreadId::NONE) {
             eventLoop.safeToLock.wait(lockGuard);
@@ -123,17 +127,21 @@ Loop::~Loop()
 void
 Loop::runForever()
 {
+    printf("event loop running forever\n");
     while (true) {
+        printf("event loop iteration\n");
         { // Handle Loop::Lock requests and exiting.
             std::unique_lock<std::mutex> lockGuard(mutex);
             runningThread = Core::ThreadId::NONE;
             // Wait for all Locks to finish up
             while (numLocks > 0) {
+                printf("notifying safeToLock\n");
                 safeToLock.notify_one();
                 unlocked.wait(lockGuard);
             }
             if (shouldExit) {
                 shouldExit = false;
+                printf("event loop exiting\n");
                 return;
             }
             runningThread = Core::ThreadId::getId();
@@ -151,13 +159,16 @@ Loop::runForever()
         // this could cause trouble.
         enum { NUM_EVENTS = 1 };
         struct epoll_event events[NUM_EVENTS];
+        printf("event loop epoll_waiting\n");
         int r = epoll_wait(epollfd, events, NUM_EVENTS, -1);
         if (r <= 0) {
             if (errno == EINTR) // caused by GDB
                 continue;
             PANIC("epoll_wait failed: %s", strerror(errno));
         }
+        printf("event loop epoll_wait done\n");
         for (int i = 0; i < r; ++i) {
+            printf("handling event\n");
             Event::File& file = *static_cast<Event::File*>(events[i].data.ptr);
             file.handleFileEvent(events[i].events);
         }

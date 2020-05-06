@@ -78,6 +78,7 @@ OpaqueServerRPC::sendReply()
 {
     std::shared_ptr<OpaqueServer::SocketWithHandler> socketRef = socket.lock();
     if (socketRef) {
+        printf("sending message\n");
         socketRef->monitor.sendMessage(messageId, std::move(response));
     } else {
         // During normal operation, this indicates that either the socket has

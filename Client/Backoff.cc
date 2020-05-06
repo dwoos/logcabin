@@ -14,6 +14,7 @@
  */
 
 #include "Client/Backoff.h"
+#include "proteinpills/proteinpills.h"
 
 namespace LogCabin {
 namespace Client {
@@ -43,9 +44,11 @@ Backoff::delayAndBegin(TimePoint timeout)
     TimePoint permissible = oldest + windowDuration;
     if (permissible > now) {
         if (permissible > timeout) { // now < timeout < permissible
+            annotate_timeout("backoff");
             Core::Time::sleep(timeout);
             return;
         } else { // now < permissible < timeout
+            annotate_timeout("backoff");
             Core::Time::sleep(permissible);
             now = Clock::now();
         }

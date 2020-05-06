@@ -18,6 +18,7 @@
 
 #include "Core/ConditionVariable.h"
 #include "Core/Debug.h"
+#include "proteinpills/proteinpills.h"
 
 namespace LogCabin {
 namespace Core {
@@ -105,10 +106,11 @@ ConditionVariable::wait(std::unique_lock<Core::Mutex>& lockGuard)
         mutex.callback();
 }
 
-void
-ConditionVariable::wait_until(
+void 
+ConditionVariable::wait_until_debug(
             std::unique_lock<std::mutex>& lockGuard,
-            const Core::Time::SteadyClock::time_point& abs_time)
+            const Core::Time::SteadyClock::time_point& abs_time,
+            const char *debug)
 {
     lastWaitUntil = abs_time;
     if (callback) {
@@ -124,6 +126,7 @@ ConditionVariable::wait_until(
             return;
         struct timespec wakespec = Core::Time::makeTimeSpec(wake);
         pthread_mutex_t* mutex = lockGuard.mutex()->native_handle();
+        annotate_timeout(debug);
         int r = pthread_cond_timedwait(&cv, mutex, &wakespec);
         switch (r) {
             case 0:
@@ -134,6 +137,15 @@ ConditionVariable::wait_until(
                 PANIC("pthread_cond_timedwait failed: %s", strerror(r));
         }
     }
+}
+
+    
+void
+ConditionVariable::wait_until(
+            std::unique_lock<std::mutex>& lockGuard,
+            const Core::Time::SteadyClock::time_point& abs_time)
+{
+    wait_until_debug(lockGuard, abs_time, "wait_until");
 }
 
 } // namespace LogCabin::Core
